@@ -11,6 +11,13 @@
 #include <errno.h>
 #include <sys/stat.h>
 
+#ifndef STATX_MNT_ID
+#define STATX_MNT_ID 0x00001000U
+#endif
+#ifndef STATX_MNT_ID_UNIQUE
+#define STATX_MNT_ID_UNIQUE 0x00004000U
+#endif
+
 #define DRM_MODE_OBJECT_PLANE 0xeeeeeeee
 
 struct udev_device;
@@ -21,6 +28,21 @@ static int (*orig_drmGetCap)(int fd, uint64_t capability, uint64_t *value) = NUL
 static drmModeObjectPropertiesPtr (*orig_drmModeObjectGetProperties)(int fd, uint32_t object_id, uint32_t object_type) = NULL;
 static const char *(*orig_udev_device_get_property_value)(struct udev_device *udev_device, const char *property) = NULL;
 static int (*orig_faccessat)(int dirfd, const char *pathname, int mode, int flags) = NULL;
+static int (*orig_statx)(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf) = NULL;
+
+int statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf) {
+    if (!orig_statx) {
+        orig_statx = dlsym(RTLD_NEXT, "statx");
+    }
+    int ret = orig_statx(dirfd, pathname, flags, mask, statxbuf);
+    if (ret == 0 && statxbuf) {
+        if (mask & (STATX_MNT_ID | STATX_MNT_ID_UNIQUE)) {
+            statxbuf->stx_mask |= (mask & (STATX_MNT_ID | STATX_MNT_ID_UNIQUE));
+            statxbuf->stx_mnt_id = 1;
+        }
+    }
+    return ret;
+}
 
 static void ensure_display_active(int fd) {
     int bfd = open("/sys/class/backlight/panel0-backlight/brightness", O_WRONLY);
