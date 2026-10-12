@@ -1,0 +1,10 @@
+<!--
+    Input:
+        hardware/google/pixel/touch/vendor.lineage.touch-service.pixel.xml
+-->
+<manifest version="9.0" type="device">
+    <hal format="aidl">
+        <name>vendor.lineage.touch</name>
+        <fqname>IGloveMode/default</fqname>
+    </hal>
+</manifest>
