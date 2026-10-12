@@ -1,0 +1,32 @@
+[03:28:25] [94mNOTE:[0m Timeout enabled, commands will be killed after 14400.0 seconds of not writing any output. Reason: timeout was explicitly set via the --timeout or -t argument[0m
+[03:28:25] Zapping buildroots (running in strict mode by default, use --lax to skip zap)[0m
+[03:28:25] Update package index for x86_64 (5 file(s))[0m
+[03:28:26] Update package index for loongarch64 (5 file(s))[0m
+[03:28:28] Update package index for ppc64le (5 file(s))[0m
+[03:28:29] Update package index for aarch64 (5 file(s))[0m
+[03:28:30] Update package index for riscv64 (5 file(s))[0m
+[03:28:31] Update package index for armv7 (5 file(s))[0m
+[03:28:34] Building [94m1[0m package[0m
+[03:28:34]    [94m*[0m edge/linux-google-bramble[0m
+[03:28:34] [93m=> (1/1)[0m [94medge/linux-google-bramble[0m: Installing dependencies[0m
+[03:28:34] Initializing x86_64 buildroot[0m
+[03:28:35] [94mNOTE:[0m The failed command's output is above the ^^^ line in the log file: /home/astellias/DistroBox/FedoraDevBox/.local/var/pmbootstrap/log.txt[0m
+[03:28:35] [94mNOTE:[0m The failed command's output is above the ^^^ line in the log file: /home/astellias/DistroBox/FedoraDevBox/.local/var/pmbootstrap/log.txt[0m
+[03:28:35] [94mNOTE:[0m The failed command's output is above the ^^^ line in the log file: /home/astellias/DistroBox/FedoraDevBox/.local/var/pmbootstrap/log.txt[0m
+[03:28:35] [94mNOTE:[0m The failed command's output is above the ^^^ line in the log file: /home/astellias/DistroBox/FedoraDevBox/.local/var/pmbootstrap/log.txt[0m
+[03:28:35] [94mNOTE:[0m The failed command's output is above the ^^^ line in the log file: /home/astellias/DistroBox/FedoraDevBox/.local/var/pmbootstrap/log.txt[0m
+[03:28:35] [94mNOTE:[0m The failed command's output is above the ^^^ line in the log file: /home/astellias/DistroBox/FedoraDevBox/.local/var/pmbootstrap/log.txt[0m
+[03:28:35] [94mNOTE:[0m The failed command's output is above the ^^^ line in the log file: /home/astellias/DistroBox/FedoraDevBox/.local/var/pmbootstrap/log.txt[0m
+[03:28:35] [94mNOTE:[0m The failed command's output is above the ^^^ line in the log file: /home/astellias/DistroBox/FedoraDevBox/.local/var/pmbootstrap/log.txt[0m
+[03:28:35] [91mERROR:[0m Command failed (exit code 32): % sudo mount --bind /proc /home/astellias/DistroBox/FedoraDevBox/.local/var/pmbootstrap/chroot_native/proc[0m
+[03:28:35] See also: <https://postmarketos.org/troubleshooting>[0m
+
+Run 'pmbootstrap log' for details.
+
+Before you report this error, ensure that pmbootstrap is up to date.
+Find the latest version here: https://gitlab.postmarketos.org/postmarketOS/pmbootstrap/-/tags
+Your version: 3.12.0
+[92mChannel[0m: systemd-edge (pmaports: main, dirty)
+[92mDevice[0m:  google-bramble (aarch64)
+[92mUI[0m:      none
+[92msystemd[0m: yes (default selected in pmbootstrap init, postmarketos-ui-none does not exist on current pmaports branch)

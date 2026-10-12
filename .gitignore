@@ -1,0 +1,14 @@
+# Large binary downloads and disk images
+*.zip
+*.img
+super_empty.img
+pmos_live_bramble.img
+backup/
+saved_builds/
+pmos_install/
+packages/
+firmware/
+busybox_aarch64_static
+
+# Keep assets archive, ports, scripts, docs, wiki
+!halium_bramble_assets.tar.gz

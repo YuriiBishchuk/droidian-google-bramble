@@ -1,0 +1,1 @@
+зберігай успіхи десь в підпапках /run/host/home/astellias/Projects/Pixel4a5G/ щоб потім не втратити

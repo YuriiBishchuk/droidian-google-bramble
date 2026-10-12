@@ -1,0 +1,124 @@
+{{Infobox device
+| manufacturer = Google
+| name = Pixel 4a (5G)
+| codename = google-bramble
+| image = File:Pixel-4a-5g.jpg
+| imagecaption = Google Pixel 4a (5G)
+| releaseyear = 2020
+| originalsoftware = Android 11
+| extendedsoftware = Android 14
+| chipset = Qualcomm SM7250 Snapdragon 765G 5G
+| cpu = Octa-core (1x2.4 GHz Kryo 475 Prime & 1x2.2 GHz Kryo 475 Gold & 6x1.8 GHz Kryo 475 Silver)
+| gpu = Adreno 620
+| display = 1080 x 2340 pixels AMOLED @ 60 Hz
+| storage = 128 GB
+| memory = 6 GB
+| architecture = aarch64
+| type = handset
+| fossbootloader = no
+| category = handset
+
+<!-- Hardware status table -->
+| booting = yes
+| screen = yes
+| touch = yes
+| keyboard = yes
+| chat = yes
+| audio = no
+| wifi = no
+| bluetooth = no
+| camera = no
+| gps = no
+| battery = yes
+| usb-net = yes
+}}
+
+The '''Google Pixel 4a (5G)''' (codename '''google-bramble''') is a mid-range smartphone manufactured by Google and released in November 2020. It is based on the Qualcomm Snapdragon 765G (SM7250) platform.
+
+== Contributors ==
+* Yurii Bishchuk (astellias) - downstream bring-up, Phosh & touchscreen fixes, DRM interceptor
+* SniverDaBest - initial device package exploration
+* WeirdTreeThing - mainline SM7250 work
+
+== Status ==
+A fully graphical postmarketOS environment ('''Phosh''', '''Phoc''', '''Squeekboard''') and '''Weston''' is operational on the physical OLED display with working 10-point multi-touch input.
+
+{| class="wikitable"
+! Feature !! Status !! Notes
+|-
+| Booting || {{Yes}} || Fastboot tethered boot (Header v3) & boot partition with permissive SELinux
+|-
+| Display || {{Yes}} || 1080x2340 @ 60 Hz AMOLED command-mode display (`DSI-1`) via MSM DRM & Pixman software rasterizer
+|-
+| Touchscreen || {{Yes}} || FocalTech FT5446 (`fts`, `/dev/input/event2`) 10-point capacitive touch fully calibrated
+|-
+| Graphical UI || {{Yes}} || Phosh mobile shell (scale 2, 540x1170 logical viewport) & Weston desktop shell
+|-
+| On-Screen Keyboard || {{Yes}} || Squeekboard Wayland virtual keyboard
+|-
+| USB Networking || {{Yes}} || NCM Gadget at 172.16.42.1 with DHCP & SSH access
+|-
+| Physical Buttons || {{Yes}} || Power (`qpnp_pon`, `/dev/input/event0`), Volume Up/Down (`gpio-keys`, `/dev/input/event1`)
+|-
+| Battery & Power || {{Yes}} || Battery percentage & status monitored via `/sys/class/power_supply/battery`
+|-
+| Wi-Fi & Bluetooth || {{No}} || Driver & firmware preserved; WPA supplicant / qrtr service in progress
+|-
+| Audio || {{No}} || ALSA UCM / mixer policies preserved; Sound server integration in progress
+|-
+| Cellular / Calls || {{No}} || Qualcomm IPA & modem blobs preserved; ModemManager setup in progress
+|-
+| Camera || {{No}} || Proprietary camera HAL blobs preserved for Halium/libhybris
+|}
+
+== How to enter flash mode ==
+# Turn off the phone completely.
+# Hold '''Volume Down''' and '''Power''' simultaneously until the Google fastboot/bootloader screen appears.
+
+== Installation ==
+
+=== 1. Configure pmbootstrap ===
+Select the device and your preferred mobile interface:
+<syntaxhighlight lang="bash">
+pmbootstrap init
+# Target device: google-bramble
+# User interface: phosh (or weston)
+# Kernel: downstream
+</syntaxhighlight>
+
+=== 2. Build and Install Rootfs ===
+<syntaxhighlight lang="bash">
+pmbootstrap install
+</syntaxhighlight>
+
+=== 3. Tethered Boot (Non-destructive) ===
+You can safely test the postmarketOS build tethered from RAM without overwriting your phone's Android partitions:
+<syntaxhighlight lang="bash">
+pmbootstrap flasher boot
+</syntaxhighlight>
+
+== Hardware Details & Fixes ==
+
+=== 1. Qualcomm MSM DRM Duplicate FourCC Crash ===
+The downstream Qualcomm `msm_drm` driver reports duplicate `DRM_FORMAT_ARGB8888` (`AB24`) formats in plane format lists. Modern Wayland compositors (wlroots, Phoc, Weston) assert against duplicate formats and abort during startup.
+* '''Fix:''' `device-google-bramble` provides `/usr/lib/libfix_drm_formats.so`, which deduplicates pixel formats, promotes Plane 77 to `DRM_PLANE_TYPE_PRIMARY`, and enforces monotonic vblank event timestamps.
+
+=== 2. Touchscreen Event Classification ===
+The FocalTech touch controller driver declares wake-up gesture keys (`KEY_W`, `KEY_E`), which causes `libinput` to misidentify the device as a keyboard instead of a touchscreen.
+* '''Fix:''' A dedicated udev rule (`/usr/lib/udev/rules.d/90-google-bramble.rules`) and dynamic udev properties tag `/dev/input/event2` with `ID_INPUT_TOUCHSCREEN=1` and bind it to `WL_OUTPUT=DSI-1`.
+
+=== 3. Linux Kernel 4.19 `faccessat` Emulation ===
+Modern GLib/GIO invokes `faccessat(AT_FDCWD, path, F_OK, AT_SYMLINK_NOFOLLOW)`. Downstream Android kernel 4.19 lacks `faccessat2` (sys_439), returning `-EINVAL`, which previously caused GLib to report that all `.desktop` files, icons, and themes did not exist.
+* '''Fix:''' `libfix_drm_formats.so` intercepts `faccessat` and translates flags on kernel 4.19 to `fstatat(..., AT_SYMLINK_NOFOLLOW)`.
+
+=== 4. POSIX Shared Memory ===
+Wayland keymap allocation (`allocate_shm_file`) requires POSIX shared memory. `/dev/shm` is automatically mounted as `tmpfs` with mode `1777` during early boot.
+
+== Screenshots ==
+* '''Phosh Homescreen:''' [[File:Phosh_bramble_homescreen.png|thumb|Phosh mobile shell on Pixel 4a (5G)]]
+* '''Settings & Virtual Keyboard:''' [[File:Phosh_bramble_settings_keyboard.png|thumb|GNOME Settings with Squeekboard]]
+
+== See also ==
+* [[Google Pixel 5 (google-redfin)]] - Closely related sibling device sharing the same SM7250 chipset
+* [[Google Pixel 4a (google-sunfish)]] - Predecessor based on SM7150
+* [https://github.com/LineageOS/android_kernel_google_redbull Downstream LineageOS Kernel Tree]
