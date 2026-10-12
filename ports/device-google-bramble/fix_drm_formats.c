@@ -65,6 +65,7 @@ const char *udev_device_get_property_value(struct udev_device *udev_device, cons
     if (strcmp(property, "ID_INPUT_TOUCHSCREEN") == 0 ||
         strcmp(property, "ID_INPUT") == 0 ||
         strcmp(property, "ID_INPUT_KEYBOARD") == 0 ||
+        strcmp(property, "ID_SEAT") == 0 ||
         strcmp(property, "WL_OUTPUT") == 0) {
 
         const char *sysname = orig_udev_device_get_property_value(udev_device, "SYSNAME");
@@ -75,6 +76,7 @@ const char *udev_device_get_property_value(struct udev_device *udev_device, cons
             if (strcmp(property, "ID_INPUT_TOUCHSCREEN") == 0) return "1";
             if (strcmp(property, "ID_INPUT") == 0) return "1";
             if (strcmp(property, "ID_INPUT_KEYBOARD") == 0) return "0";
+            if (strcmp(property, "ID_SEAT") == 0) return "seat0";
             if (strcmp(property, "WL_OUTPUT") == 0) return "DSI-1";
         }
     }

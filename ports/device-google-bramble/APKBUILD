@@ -1,5 +1,5 @@
 # Reference: <https://postmarketos.org/devicepkg>
-maintainer="Yurii Bishchuk <astellias>"
+maintainer="Yurii Bishchuk <astellias@gmail.com>"
 pkgname=device-google-bramble
 pkgver=1
 pkgrel=7
@@ -32,6 +32,7 @@ source="
 	start_gui.sh
 	"
 options="!archcheck !check"
+subpackages="$pkgname-udev"
 
 build() {
 	devicepkg_build "$startdir" "$pkgname"
@@ -58,16 +59,16 @@ package() {
 	install -Dm644 "$srcdir"/phoc.ini "$pkgdir"/etc/phosh/phoc.ini
 
 	# Interactive mobile GUI launcher
-	install -Dm755 "$srcdir"/start_gui.sh "$pkgdir"/usr/local/bin/start_gui.sh
+	install -Dm755 "$srcdir"/start_gui.sh "$pkgdir"/usr/bin/start_gui.sh
 }
 sha512sums="
 8a93a38a88e65d44a66f63b4367c759a65921939987e103f4556cb378da728b5f5c23fba5c98e6009a91f30d469a854201e45f231850b72d2861d693da75985b  deviceinfo
 816b8c5caa8e6dc245ee290b9ae8c9d6b16bd739f372807e454a516dc3c841d439deb1f4d00eaac0f6e3c4b3b77bbe1e5c6673c75f707928f637978f8548bdcc  modules-initfs
 9d3f5f1781ccf9801ee6470aa9cccdc8c79c66c4f35553d0d30aca9f701c0fb14523e26399004e5affe132cd01d3f5119c278688335ce7c2844a404828673333  lito-v2.dtb
 16d2f1c23b7d495dc99c7c7c539caadf6a032a2c589d8739916b96e4760b2491eaeb47aacf454c86a2fdefff2033d4d5475abb5963ed41d725d4d786c751906b  initfs-hook.sh
-1e4e260ead4ff373cb08931a705c44f95cd8d47e4f7b79829d72b39a7e3ae73cabcf68b30ca8d5a35bc6b87177b7c3d04894266eef386e948bb3710f5080262a  fix_drm_formats.c
-caf9fb02fa3771f981903ab5d5312fb5f7a50ef719cfd2e4ce718412e98060d83bcb6e8551a567ec388426228d4d4a409b4dcf748c0a79743ae04a39151054bf  90-google-bramble.rules
-547d8e6375bc39cb1dbf968de46457bcdab6c8e725300480b4527caeaf563571add6b1e9b6bbd6320327e63e88a051350ba64c9797cc010c259b9bde691e6878  bramble-display.sh
+7ecffd31c64eea2e965ec5a0a31987bd9efb40923fcf1f8859237b263a97d0394c16a0be8dbf0b85bf516a405439a0dd898e6518535b93e9b3fc34d4b540ecaf  fix_drm_formats.c
+47522581a8228c1cd2da1a0920b847c7c483638a1ac02cb304478dbfd3eff24538d2f3ba9c927131aee7540f0e02de04ea8cf46f554c0ee8f512b2cd6107c35c  90-google-bramble.rules
+a5d44b215e552b22f2bb984b435c5aeb3dc03d83ad0a81e1d43783e68b234a82a04be8015490f2d200e1f20b08524c03bb9cdacb21520f257f5d581ebc6845bd  bramble-display.sh
 aa151ad58a16226e6e7553e7208b4309373ba98cff501678fbcad656fde6d86894d1e70adb32376d0085c05fe2ee68ca7896b582945838059dbdd1922f022c5c  phoc.ini
-085171b7b15c1a8267dbbb35a5b1dec1d9d70beba1a6ec1b1faf47091b6790a6884d38cb25c4f0f95f1515dabd1ea3bdff8320a84e261dfbcf1ad07d2e47fd9d  start_gui.sh
+719b681a768b7b92f969fb1ce9fb69f714396c16af997f8c0d314719f7fa8f4b267ece1155a1fe377900e7660784d9acc862b3f23fddab0d0aea1ffaa3702d09  start_gui.sh
 "

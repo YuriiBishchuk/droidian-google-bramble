@@ -3,6 +3,9 @@
 # /usr/local/bin/start_gui.sh: Interactive Mobile GUI Launcher for Pixel 4a (5G)
 # ==============================================================================
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export TMPDIR=/tmp
+export TEMP=/tmp
+export TMP=/tmp
 export XDG_RUNTIME_DIR=/tmp/run-user-0
 export SEATD_VTBOUND=0
 export SEATD_SOCK=/run/seatd.sock
@@ -10,6 +13,7 @@ export LD_PRELOAD=/usr/lib/libfix_drm_formats.so
 export WLR_DRM_DEVICES=/dev/dri/card0
 export WLR_NO_HARDWARE_CURSORS=1
 export WLR_RENDERER=pixman
+export WLR_LIBINPUT_NO_DEVICES=1
 export GDK_BACKEND=wayland
 export NO_AT_BRIDGE=1
 export XDG_CURRENT_DESKTOP=Phosh:GNOME

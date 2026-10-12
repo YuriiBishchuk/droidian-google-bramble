@@ -14,8 +14,14 @@ export WLR_NO_HARDWARE_CURSORS=1
 # Use Pixman CPU software rasterizer (MSM KMS + Pixman at 60 FPS)
 export WLR_RENDERER=pixman
 
-# Seat management without VT
+# Seat & Input management
 export SEATD_VTBOUND=0
+export WLR_LIBINPUT_NO_DEVICES=1
+
+# Standard temp directories
+export TMPDIR=/tmp
+export TEMP=/tmp
+export TMP=/tmp
 
 # Wayland defaults
 export GDK_BACKEND=wayland
