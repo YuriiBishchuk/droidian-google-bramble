@@ -521,3 +521,82 @@ enable = false
    # Або з хоста в один клік:
    ./launch_pmos_gui.sh
    ```
+
+---
+
+## 23. Подолання проблеми з індикатором батареї (UPower 0% -> 99%)
+
+### Проблема:
+У Phosh у статус-барі індикатор батареї показував `0%` (значок порожньої батареї), хоча пристрій був повністю заряджений. При запуску `upower -d` демон `upowerd` не бачив батареї `/sys/class/power_supply/battery` взагалі.
+
+### Діагностика:
+1. У ядрі Android 4.19 драйвер `qcom-smb1398` та батарейний драйвер коректно експортували всі параметри у `/sys/class/power_supply/battery/` (`capacity: 99`, `status: Charging`, `voltage_now: 4350000`).
+2. Однак сучасний `libudev` (та `eudev` / `systemd-udevd`) для перелічення та моніторингу пристроїв у каталозі `/sys` використовує системний виклик `statx()`.
+3. На ядрі Linux 4.19 системний виклик `statx` з певними прапорцями повертав помилку, через що `udev_enumerate_scan_devices()` завершувався невдачею, і `upowerd` вважав, що пристроїв живлення немає.
+4. Крім того, при виклику через системний D-Bus демон `upowerd` запускався без оточення `LD_PRELOAD=/usr/lib/libfix_drm_formats.so`.
+
+### Вирішення:
+1. **Хук `statx` у `fix_drm_formats.c`**:
+   Додано інтерцептор для системного виклику `statx`: якщо виклик повертає помилку через несумісність прапорців на ядрі 4.19, інтерцептор емулює його через класичний `fstatat64`/`fstatat`, заповнюючи структуру `struct statx`.
+2. **Передзавантаження для системних служб**:
+   - `upowerd` запущено з `LD_PRELOAD=/usr/lib/libfix_drm_formats.so`.
+   - Додано глобальні дроп-іни для systemd (`/etc/systemd/system.conf.d/10-bramble.conf` та `/etc/systemd/user.conf.d/10-bramble.conf`).
+3. **Результат:**
+   Демон UPower миттєво підхопив сенсор:
+   ```
+   Device: /org/freedesktop/UPower/devices/battery_battery
+     native-path:          battery
+     power supply:         yes
+     updated:              Mon Oct 12 16:29:40 2026
+     has history:          yes
+     is present:           yes
+     state:                charging
+     warning-level:        none
+     percentage:           99%
+     icon-name:            'battery-full-charging-symbolic'
+   ```
+   У Phosh статус-бар оновився до зеленого повноцінного індикатора із блискавкою зарядки. Верифіковано скріншотом [`wiki/screenshots/01_phosh_battery_and_topbar.png`](file:///run/host/home/astellias/Projects/Pixel4a5G/wiki/screenshots/01_phosh_battery_and_topbar.png).
+
+---
+
+## 24. Оптимальне масштабування та Systemd-дроп-іни
+
+1. **Масштабування Phosh (`scale = 2.75`):**
+   При роздільній здатності 1080x2340 масштаб 2.0 робив елементи дещо завеликими (540x1170), а 3.0 — занадто дрібними. Масштаб `2.75` створює логічну роздільну здатність **392x851 dp** — стандарт для Android-смартфонів класу Pixel. Інтерфейс виглядає бездоганно чітко, екранна клавіатура займає пропорційну нижню третину екрана.
+
+2. **Дроп-іни конфігурації менеджера Systemd:**
+   Створено конфігураційні файли:
+   - `/etc/systemd/system.conf.d/10-bramble.conf`
+   - `/etc/systemd/user.conf.d/10-bramble.conf`
+   - `/etc/environment.d/10-bramble.conf`
+   Всі вони забезпечують автоматичне налаштування змінних оточення для Wayland, Pixman, udev-перехоплювача та прав доступу без необхідності ручного експорту.
+
+---
+
+## 25. Офіційний апстрім у postmarketOS (GitLab MR !9754)
+
+### Публікація коду:
+1. Створено публічний репозиторій-форк: [github.com/YuriiBishchuk/pmaports](https://github.com/YuriiBishchuk/pmaports) з гілкою `device/google-bramble`.
+2. Відкрито офіційний Merge Request до головного репозиторію postmarketOS:
+   **[postmarketOS/pmaports!9754: device/google-bramble: add Google Pixel 4a (5G)](https://gitlab.postmarketos.org/postmarketOS/pmaports/-/merge_requests/9754)**.
+
+### Проходження лінтерів та CI:
+Для проходження суворого пайплайну CI postmarketOS було вирішено такі задачі:
+1. **`kernel-kconfig` (🟢 PASSED):**
+   Додано 8 обов'язкових опцій ядра postmarketOS (`CONFIG_DEVTMPFS=y`, `CONFIG_DM_CRYPT=y`, `CONFIG_FB=y`, `CONFIG_NLS_ASCII=y`, `CONFIG_SYSVIPC=y`, `CONFIG_VT=y`, `CONFIG_DRM_FBDEV_EMULATION=y`, `CONFIG_USER_NS=y`) та оновлено контрольні суми.
+2. **`dint` (🟢 PASSED):**
+   - Оновлено заголовок до актуального стандарту `# Reference: <https://nura.eco/deviceinfo>`.
+   - Видалено застарілі та надлишкові поля (`deviceinfo_boot_img_header_version`, `deviceinfo_kernel_source`, `deviceinfo_usb_network_function`).
+   - Перенесено аргументи командного рядка з застарілого `deviceinfo_kernel_cmdline` у модульний файл `kernel-cmdline.conf` (стандарт `kernel-cmdline.d`).
+3. **`editor-config` (🟢 PASSED):**
+   - Усі файли конфігурацій та скрипти переформатовано на чисту табуляцію (`\t`), видалено пробіли у відступах та trailing whitespace.
+   - Усунено бінарний файл `lito-v2.dtb` з репозиторію git: збірка DTB перенесена безпосередньо у `linux-google-bramble/APKBUILD`, де ядро встановлює його у `/boot/dtbs/lito-v2.dtb`.
+4. **`shellcheck-grep` (🟢 PASSED):**
+   - Додано валідний `maintainer="Yurii Bishchuk <yuriikovaldev@gmail.com>"`.
+   - Шлях встановлення модулів ядра виправлено на `INSTALL_MOD_PATH="$pkgdir"/usr` з очищенням `/usr/lib/modules/`.
+5. **`pytest-commits` (🟢 PASSED):**
+   - Нові пакети ініціалізовано зі стандартним для pmaports значенням `pkgrel=0`.
+6. **`verify-checksums` (🟢 PASSED):**
+   - Усі суми SHA-512 перевірені та підтверджені.
+
+Усі 9 із 10 перевірок CI пройшли успішно, залишився лише чек сторінки Wiki, яка очікує підтвердження реєстрації на `wiki.nura.eco` для виставлення статусу `booting = yes`.

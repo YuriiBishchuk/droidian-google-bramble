@@ -1,0 +1,199 @@
+#!/bin/sh
+# Resilient Multi-Stage Logging Debug Init for Pixel 4a 5G (bramble / SM7250)
+
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+# 1. Install all BusyBox symlinks
+/bin/busybox --install -s /bin 2>/dev/null || true
+
+# 2. Dynamic runtime device nodes creation
+mkdir -p /dev /proc /sys /config /tmp /run /var/lib/misc /sys/fs/pstore /persist /metadata
+
+# Essential character devices
+mknod -m 666 /dev/null c 1 3 2>/dev/null || true
+mknod -m 666 /dev/zero c 1 5 2>/dev/null || true
+mknod -m 666 /dev/kmsg c 1 11 2>/dev/null || true
+mknod -m 600 /dev/console c 5 1 2>/dev/null || true
+mknod -m 666 /dev/tty c 5 0 2>/dev/null || true
+
+# Hardware UFS storage block devices (Major 8)
+mknod -m 660 /dev/sda b 8 0 2>/dev/null || true
+mknod -m 660 /dev/sda1 b 8 1 2>/dev/null || true
+mknod -m 660 /dev/sda2 b 8 2 2>/dev/null || true
+mknod -m 660 /dev/sda14 b 8 14 2>/dev/null || true
+mknod -m 660 /dev/sda15 b 8 15 2>/dev/null || true
+
+# Mount pseudofs
+mount -t proc proc /proc 2>/dev/null || true
+mount -t sysfs sysfs /sys 2>/dev/null || true
+mount -t devpts devpts /dev/pts 2>/dev/null || true
+mount -t configfs configfs /config 2>/dev/null || true
+mount -t tmpfs tmpfs /tmp 2>/dev/null || true
+mount -t pstore pstore /sys/fs/pstore 2>/dev/null || true
+
+echo /bin/mdev > /proc/sys/kernel/hotplug 2>/dev/null || true
+mdev -s 2>/dev/null || true
+
+# Helper function: resilient mount and log save
+save_logs() {
+    STAGE_TAG="$1"
+    if ! grep -qs '/persist' /proc/mounts; then
+        mknod -m 660 /dev/sda2 b 8 2 2>/dev/null || true
+        for p in /dev/sda2 /dev/block/sda2; do
+            mount -t ext4 "$p" /persist 2>/dev/null && break
+        done
+    fi
+    if grep -qs '/persist' /proc/mounts; then
+        dmesg > "/persist/boot_${STAGE_TAG}.log" 2>/dev/null || true
+        dmesg > /persist/linux_boot_latest.log 2>/dev/null || true
+        echo "STAGE_${STAGE_TAG}_OK" > /persist/boot_stage.txt 2>/dev/null || true
+        sync
+        echo "=== PERSIST LOG SAVED: ${STAGE_TAG} ===" > /dev/kmsg 2>/dev/null || true
+    fi
+}
+
+# 3. Stage 1 Log
+echo "=== STAGE 1: PIXEL 4A 5G LINUX DEBUG INIT STARTED ===" > /dev/kmsg 2>/dev/null || true
+echo "Kernel: $(uname -a)" > /dev/kmsg 2>/dev/null || true
+dmesg > /tmp/boot_stage1.log 2>/dev/null || true
+
+# 4. Load hardware modules in verified Qualcomm kernel order
+echo "=== STAGE 2: Loading 221 hardware modules ===" > /dev/kmsg 2>/dev/null || true
+COUNT=0
+if [ -f /lib/modules/modules.load.ordered ]; then
+    while read -r mod; do
+        [ -z "$mod" ] && continue
+        case "$mod" in
+            \#*) continue ;;
+        esac
+        if [ -f "/lib/modules/$mod.ko" ]; then
+            COUNT=$((COUNT + 1))
+            insmod "/lib/modules/$mod.ko" 2>/dev/null || true
+        fi
+        
+        # When UFS driver loads, wait briefly for async SCSI probe and attempt log save
+        if [ "$mod" = "ufs_qcom" ]; then
+            sleep 2
+            mdev -s 2>/dev/null || true
+            save_logs "stage2_ufs"
+        fi
+        
+        # When DRM display driver loads, save log again
+        if [ "$mod" = "msm_drm" ]; then
+            save_logs "stage3_drm"
+        fi
+    done < /lib/modules/modules.load.ordered
+fi
+echo "=== STAGE 3: Loaded $COUNT modules successfully ===" > /dev/kmsg 2>/dev/null || true
+
+# Rescan all device nodes with mdev now that all drivers are in place
+mdev -s 2>/dev/null || true
+
+# Wait in loop up to 5s for UFS SCSI to settle and save all modules log
+for i in 1 2 3 4 5; do
+    save_logs "stage4_modules"
+    if grep -qs '/persist' /proc/mounts; then
+        break
+    fi
+    sleep 1
+done
+
+# 5. Wait for UDC controller
+UDC_DEV=""
+for i in 1 2 3 4 5; do
+    UDC_DEV=$(ls /sys/class/udc 2>/dev/null | head -n 1)
+    if [ -n "$UDC_DEV" ]; then
+        break
+    fi
+    sleep 1
+done
+
+if [ -z "$UDC_DEV" ]; then
+    UDC_DEV="a600000.dwc3"
+fi
+echo "Detected UDC Controller: $UDC_DEV" > /dev/kmsg 2>/dev/null || true
+
+# 6. Setup USB Gadget matching Qualcomm SM7250 vendor definitions
+mkdir -p /config/usb_gadget/g1
+cd /config/usb_gadget/g1
+
+echo "0x18d1" > idVendor
+echo "0x4eea" > idProduct
+echo "0x0200" > bcdUSB
+echo "0x0440" > bcdDevice
+
+mkdir -p strings/0x409
+echo "13011JECB06894" > strings/0x409/serialnumber
+echo "Google" > strings/0x409/manufacturer
+echo "Pixel 4a 5G Linux Debug" > strings/0x409/product
+
+mkdir -p configs/b.1
+mkdir -p configs/b.1/strings/0x409
+echo "rndis_serial" > configs/b.1/strings/0x409/configuration
+echo 500 > configs/b.1/MaxPower
+
+# Function 1: Hardware RNDIS
+mkdir -p /config/usb_gadget/g1/functions/gsi.rndis
+echo 1 > /config/usb_gadget/g1/functions/gsi.rndis/rndis_class_id 2>/dev/null || true
+ln -s /config/usb_gadget/g1/functions/gsi.rndis /config/usb_gadget/g1/configs/b.1/f1 2>/dev/null || true
+
+# Function 2: Serial ACM Console
+mkdir -p /config/usb_gadget/g1/functions/cser.dun.0
+ln -s /config/usb_gadget/g1/functions/cser.dun.0 /config/usb_gadget/g1/configs/b.1/f2 2>/dev/null || true
+
+# OS Descriptors
+mkdir -p /config/usb_gadget/g1/os_desc
+echo 0x1 > /config/usb_gadget/g1/os_desc/b_vendor_code 2>/dev/null || true
+echo "MSFT100" > /config/usb_gadget/g1/os_desc/qw_sign 2>/dev/null || true
+ln -s /config/usb_gadget/g1/configs/b.1 /config/usb_gadget/g1/os_desc/b.1 2>/dev/null || true
+
+# Bind UDC
+echo "$UDC_DEV" > /config/usb_gadget/g1/UDC 2>/dev/null || true
+echo "USB Gadget bound to $UDC_DEV" > /dev/kmsg 2>/dev/null || true
+
+# Rescan nodes for new USB serial / network devices
+mdev -s 2>/dev/null || true
+
+# 7. Network Setup
+sleep 1
+IFACE=$(ls /sys/class/net 2>/dev/null | grep -v lo | head -n 1)
+if [ -n "$IFACE" ]; then
+    ip link set "$IFACE" up 2>/dev/null || ifconfig "$IFACE" up 2>/dev/null || true
+    ip addr add 172.16.42.1/24 dev "$IFACE" 2>/dev/null || ifconfig "$IFACE" 172.16.42.1 netmask 255.255.255.0 2>/dev/null || true
+    echo "Network interface $IFACE configured with 172.16.42.1" > /dev/kmsg 2>/dev/null || true
+
+    mkdir -p /var/lib/misc
+    touch /var/lib/misc/udhcpd.leases
+    cat << 'EOF' > /etc/udhcpd.conf
+start 172.16.42.2
+end 172.16.42.10
+interface usb0
+opt subnet 255.255.255.0
+opt router 172.16.42.1
+EOF
+    udhcpd /etc/udhcpd.conf 2>/dev/null || true
+
+    telnetd -p 23 -l /bin/sh
+    echo "=== Telnet debug shell running on 172.16.42.1:23 ===" > /dev/kmsg 2>/dev/null || true
+fi
+
+# 8. Spawn Serial Console shell if hardware serial node appeared
+for ttydev in /dev/ttyGS0 /dev/ttyGS1 /dev/cser_dun_0; do
+    if [ -e "$ttydev" ]; then
+        echo "=== Spawning root shell on serial port $ttydev ===" > /dev/kmsg 2>/dev/null || true
+        /bin/sh <"$ttydev" >"$ttydev" 2>&1 &
+        break
+    fi
+done
+
+# Save logs after USB setup
+save_logs "stage5_usb"
+
+# 9. Heartbeat loop: continually saves dmesg to persist partition
+COUNTER=0
+while true; do
+    COUNTER=$((COUNTER + 1))
+    echo "Heartbeat $COUNTER: Pixel Linux active" > /dev/kmsg 2>/dev/null || true
+    save_logs "stage6_heartbeat"
+    sleep 5
+done

@@ -1,0 +1,87 @@
+#!/bin/sh
+# Early Linux Init with USB NCM & Telnet Debug Shell for Pixel 4a 5G (bramble)
+
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+echo "=== Pixel 4a 5G (bramble) Linux Early Debug Init ===" > /dev/kmsg 2>/dev/null || true
+
+# 1. Mount Essential Pseudo-filesystems
+mkdir -p /proc /sys /dev /config /tmp /run /dev/pts
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs none /dev 2>/dev/null || {
+    mount -t tmpfs none /dev
+    mknod -m 600 /dev/console c 5 1
+    mknod -m 666 /dev/null c 1 3
+    mknod -m 666 /dev/zero c 1 5
+    mknod -m 666 /dev/kmsg c 1 11
+    mknod -m 666 /dev/ptmx c 5 2
+}
+mount -t devpts none /dev/pts 2>/dev/null || true
+mount -t configfs none /config 2>/dev/null || true
+
+echo "Linux Kernel version: $(uname -a)" > /dev/kmsg
+
+# 2. Configure USB Gadget (NCM Ethernet)
+echo "Configuring USB Gadget on a600000.dwc3..." > /dev/kmsg
+mkdir -p /config/usb_gadget/g1
+cd /config/usb_gadget/g1
+
+echo "0x18d1" > idVendor
+echo "0xd001" > idProduct
+echo "0x0200" > bcdUSB
+
+mkdir -p strings/0x409
+echo "13011JECB06894" > strings/0x409/serialnumber
+echo "Google" > strings/0x409/manufacturer
+echo "Pixel 4a 5G Linux Debug" > strings/0x409/product
+
+mkdir -p configs/c.1
+mkdir -p configs/c.1/strings/0x409
+echo "CDC-NCM Ethernet Config" > configs/c.1/strings/0x409/configuration
+echo 500 > configs/c.1/MaxPower
+
+# Create NCM Network function
+mkdir -p functions/ncm.usb0
+ln -s functions/ncm.usb0 configs/c.1/
+
+# Bind USB Gadget to UDC
+echo "a600000.dwc3" > UDC
+echo "USB Gadget bound to UDC successfully!" > /dev/kmsg
+
+# 3. Configure IP Address on usb0
+sleep 1
+if ifconfig usb0 172.16.42.1 netmask 255.255.255.0 up 2>/dev/null; then
+    echo "Network interface usb0 configured: 172.16.42.1" > /dev/kmsg
+else
+    ip addr add 172.16.42.1/24 dev usb0 2>/dev/null
+    ip link set usb0 up 2>/dev/null
+fi
+
+# 4. Configure & Start udhcpd (DHCP server for PC)
+cat << 'EOF' > /etc/udhcpd.conf
+start 172.16.42.2
+end 172.16.42.10
+interface usb0
+max_leases 10
+opt subnet 255.255.255.0
+opt router 172.16.42.1
+opt dns 172.16.42.1
+EOF
+
+udhcpd /etc/udhcpd.conf 2>/dev/null || true
+echo "DHCP server started on usb0" > /dev/kmsg
+
+# 5. Start Telnet Debug Server
+telnetd -p 23 -l /bin/sh
+echo "Telnet debug shell listening on 172.16.42.1:23" > /dev/kmsg
+
+# 6. Save early dmesg and system info
+dmesg > /tmp/boot_dmesg.txt 2>/dev/null || true
+
+echo "=== Linux Debug Environment Ready ===" > /dev/kmsg
+
+# 7. Keep Init Alive
+while true; do
+    sleep 30
+done

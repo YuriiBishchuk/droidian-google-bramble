@@ -25,7 +25,7 @@
 | keyboard = yes
 | chat = yes
 | audio = no
-| wifi = no
+| wifi = yes
 | bluetooth = no
 | camera = no
 | gps = no
@@ -36,12 +36,12 @@
 The '''Google Pixel 4a (5G)''' (codename '''google-bramble''') is a mid-range smartphone manufactured by Google and released in November 2020. It is based on the Qualcomm Snapdragon 765G (SM7250) platform.
 
 == Contributors ==
-* Yurii Bishchuk (astellias) - downstream bring-up, Phosh & touchscreen fixes, DRM interceptor
+* Yurii Bishchuk (astellias) - downstream bring-up, Phosh & touchscreen fixes, DRM interceptor, Wi-Fi bringup
 * SniverDaBest - initial device package exploration
 * WeirdTreeThing - mainline SM7250 work
 
 == Status ==
-A fully graphical postmarketOS environment ('''Phosh''', '''Phoc''', '''Squeekboard''') and '''Weston''' is operational on the physical OLED display with working 10-point multi-touch input.
+A fully graphical postmarketOS environment ('''Phosh''', '''Phoc''', '''Squeekboard''') is operational on the physical OLED display with working 10-point multi-touch input and functional Wi-Fi networking.
 
 {| class="wikitable"
 ! Feature !! Status !! Notes
@@ -52,9 +52,11 @@ A fully graphical postmarketOS environment ('''Phosh''', '''Phoc''', '''Squeekbo
 |-
 | Touchscreen || {{Yes}} || FocalTech FT5446 (`fts`, `/dev/input/event2`) 10-point capacitive touch fully calibrated
 |-
-| Graphical UI || {{Yes}} || Phosh mobile shell (scale 2, 540x1170 logical viewport) & Weston desktop shell
+| Graphical UI || {{Yes}} || Phosh mobile shell (scale 2.75, ~392x850 logical viewport) & Weston desktop shell
 |-
 | On-Screen Keyboard || {{Yes}} || Squeekboard Wayland virtual keyboard
+|-
+| Wi-Fi || {{Yes}} || 2.4 GHz & 5 GHz scanning, WPA2/WPA3 connection, DHCP and internet access via NetworkManager
 |-
 | USB Networking || {{Yes}} || NCM Gadget at 172.16.42.1 with DHCP & SSH access
 |-
@@ -62,7 +64,7 @@ A fully graphical postmarketOS environment ('''Phosh''', '''Phoc''', '''Squeekbo
 |-
 | Battery & Power || {{Yes}} || Battery percentage & status monitored via `/sys/class/power_supply/battery`
 |-
-| Wi-Fi & Bluetooth || {{No}} || Driver & firmware preserved; WPA supplicant / qrtr service in progress
+| Bluetooth || {{No}} || Driver & firmware preserved; service integration in progress
 |-
 | Audio || {{No}} || ALSA UCM / mixer policies preserved; Sound server integration in progress
 |-
@@ -113,6 +115,18 @@ Modern GLib/GIO invokes `faccessat(AT_FDCWD, path, F_OK, AT_SYMLINK_NOFOLLOW)`. 
 
 === 4. POSIX Shared Memory ===
 Wayland keymap allocation (`allocate_shm_file`) requires POSIX shared memory. `/dev/shm` is automatically mounted as `tmpfs` with mode `1777` during early boot.
+
+=== 5. Modern libudev (systemd 262) `statx` Emulation ===
+Newer versions of `libudev` in Alpine Linux edge query mount identifiers via `statx(..., STATX_MNT_ID | STATX_MNT_ID_UNIQUE)`. Because kernel 4.19 predates `STATX_MNT_ID` (introduced in kernel 5.8), `statx` fails to return mount IDs, preventing `libinput` from discovering input devices.
+* '''Fix:''' `libfix_drm_formats.so` intercepts `statx` calls requesting `STATX_MNT_ID` and returns a synthetic mount ID (`stx_mnt_id = 1`), enabling out-of-the-box touchscreen detection under Phoc/Phosh.
+
+=== 6. Display Scaling & Systemd Integration ===
+The 1080x2340 413 ppi AMOLED display is configured with `scale = 2.75` in `/etc/phosh/phoc.ini` and `/etc/phrog/phoc.ini`.
+System-wide environment variables required for MSM DRM rendering (`WLR_RENDERER=pixman`, `WLR_NO_HARDWARE_CURSORS=1`, `LD_PRELOAD=/usr/lib/libfix_drm_formats.so`) are automatically injected into all system and user units via:
+* `/etc/systemd/system.conf.d/10-bramble.conf`
+* `/etc/systemd/user.conf.d/10-bramble.conf`
+* `/etc/environment.d/10-bramble.conf`
+* `/usr/share/tinydm/env-wayland.d/20-bramble.sh`
 
 == Screenshots ==
 * '''Phosh Homescreen:''' [[File:Phosh_bramble_homescreen.png|thumb|Phosh mobile shell on Pixel 4a (5G)]]

@@ -24,8 +24,9 @@
 | **Завантаження (Booting)** | ✅ Працює | `pmbootstrap flasher boot` або через `fastboot boot` з Header v3 |
 | **Екран (Display)** | ✅ Працює | 1080x2340 @ 60Hz AMOLED (`DSI-1`), MSM DRM + Pixman |
 | **Тачскрін (Touchscreen)** | ✅ Працює | FocalTech FT5446 (`fts`, `/dev/input/event2`), 10-точковий мультитач |
-| **Мобільний UI** | ✅ Працює | **Phosh** (Phone Shell, scale 2, 540x1170) та **Weston** |
+| **Мобільний UI** | ✅ Працює | **Phosh** (Phone Shell, scale 2.75, ~392x850) та **Weston** |
 | **Екранна клавіатура** | ✅ Працює | **Squeekboard** Wayland Virtual Keyboard |
+| **Wi-Fi** | ✅ Працює | 2.4/5 GHz сканування, підключення WPA2/WPA3, DHCP та інтернет через NetworkManager |
 | **Мережа USB / SSH** | ✅ Працює | NCM Gadget на 172.16.42.1 (SSH без пароля) |
 | **Фізичні клавіші** | ✅ Працює | Живлення (`qpnp_pon`), гучність (`gpio-keys`) |
 | **Акумулятор / Живлення** | ✅ Працює | Індикація заряду в статус-барі через `/sys/class/power_supply` |

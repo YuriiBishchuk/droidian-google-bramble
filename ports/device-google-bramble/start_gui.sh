@@ -21,7 +21,7 @@ export DESKTOP_SESSION=phosh
 
 # Performance governor boost for smooth software rendering
 for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-    echo performance > "$g" 2>/dev/null || true
+	echo performance > "$g" 2>/dev/null || true
 done
 
 mkdir -p /tmp/run-user-0 /run /dev/pts /dev/shm /data/local/tmp /tmp /run/udev/data /run/dbus /etc/NetworkManager/conf.d
@@ -31,7 +31,7 @@ mountpoint -q /dev/shm || mount -t tmpfs tmpfs /dev/shm -o rw,nosuid,nodev,mode=
 
 # Populate static udev data for touchscreen
 if [ ! -f /run/udev/data/c13:66 ]; then
-    cat << 'UDEV_DATA' > /run/udev/data/c13:66
+	cat << 'UDEV_DATA' > /run/udev/data/c13:66
 I:1000
 E:SUBSYSTEM=input
 E:DEVNAME=/dev/input/event2
@@ -53,6 +53,10 @@ pgrep -x dbus-daemon >/dev/null || dbus-daemon --system
 pgrep -x wpa_supplicant >/dev/null || wpa_supplicant -u -s -B 2>/dev/null || true
 pgrep -x NetworkManager >/dev/null || LD_PRELOAD=/usr/lib/libfix_drm_formats.so NetworkManager &
 
+# UPower battery daemon with statx hook
+killall -9 upowerd 2>/dev/null || true
+LD_PRELOAD=/usr/lib/libfix_drm_formats.so /usr/libexec/upowerd &
+
 killall -9 phoc phosh squeekboard weston seatd 2>/dev/null || true
 rm -f /run/seatd.sock /tmp/seatd.log /tmp/phosh.log
 
@@ -60,31 +64,31 @@ echo "[start_gui] Starting seatd daemon..."
 seatd -u root -g root -l debug >/tmp/seatd.log 2>&1 &
 
 for i in $(seq 1 20); do
-    if [ -S /run/seatd.sock ]; then
-        echo "[start_gui] seatd.sock is ready!"
-        chmod 0777 /run/seatd.sock
-        break
-    fi
-    sleep 0.1
+	if [ -S /run/seatd.sock ]; then
+		echo "[start_gui] seatd.sock is ready!"
+		chmod 0777 /run/seatd.sock
+		break
+	fi
+	sleep 0.1
 done
 
 if [ ! -S /run/seatd.sock ]; then
-    echo "[start_gui] Error: seatd failed to create socket!"
-    cat /tmp/seatd.log
-    exit 1
+	echo "[start_gui] Error: seatd failed to create socket!"
+	cat /tmp/seatd.log
+	exit 1
 fi
 
 # Ensure backlight is active
 echo 1023 > /sys/class/backlight/panel0-backlight/brightness 2>/dev/null || true
 
 case "$1" in
-    weston)
-        echo "[start_gui] Launching Weston desktop shell..."
-        exec weston --backend=drm --renderer=pixman --drm-device=card0 --continue-without-input --log=/tmp/weston.log
-        ;;
-    *)
-        echo "[start_gui] Launching Phoc + Phosh mobile environment..."
-        cat << 'RUNNER' > /tmp/run_phosh_session.sh
+	weston)
+		echo "[start_gui] Launching Weston desktop shell..."
+		exec weston --backend=drm --renderer=pixman --drm-device=card0 --continue-without-input --log=/tmp/weston.log
+		;;
+	*)
+		echo "[start_gui] Launching Phoc + Phosh mobile environment..."
+		cat << 'RUNNER' > /tmp/run_phosh_session.sh
 #!/bin/sh
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export TMPDIR=/tmp
@@ -99,14 +103,14 @@ export GALLIUM_DRIVER=llvmpipe
 export GSK_RENDERER=cairo
 
 (
-    while [ ! -e "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; do sleep 0.2; done
-    sleep 1
-    squeekboard &
+	while [ ! -e "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; do sleep 0.2; done
+	sleep 1
+	squeekboard &
 ) &
 
 exec /usr/libexec/phosh -U
 RUNNER
-        chmod +x /tmp/run_phosh_session.sh
-        exec dbus-run-session phoc -v -S -C /etc/phosh/phoc.ini -E /tmp/run_phosh_session.sh
-        ;;
+		chmod +x /tmp/run_phosh_session.sh
+		exec dbus-run-session phoc -v -S -C /etc/phosh/phoc.ini -E /tmp/run_phosh_session.sh
+		;;
 esac
