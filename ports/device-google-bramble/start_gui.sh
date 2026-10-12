@@ -13,14 +13,14 @@ export LD_PRELOAD=/usr/lib/libfix_drm_formats.so
 export WLR_DRM_DEVICES=/dev/dri/card0
 export WLR_NO_HARDWARE_CURSORS=1
 export WLR_RENDERER=pixman
-export WLR_LIBINPUT_NO_DEVICES=1
 export GDK_BACKEND=wayland
 export NO_AT_BRIDGE=1
 export XDG_CURRENT_DESKTOP=Phosh:GNOME
 export DESKTOP_SESSION=phosh
 
-mkdir -p /tmp/run-user-0 /run /dev/pts /dev/shm
+mkdir -p /tmp/run-user-0 /run /dev/pts /dev/shm /data/local/tmp /tmp
 chmod 700 /tmp/run-user-0
+chmod 1777 /tmp /data/local/tmp
 mountpoint -q /dev/shm || mount -t tmpfs tmpfs /dev/shm -o rw,nosuid,nodev,mode=1777
 
 mkdir -p /run/dbus
@@ -59,6 +59,9 @@ case "$1" in
         echo "[start_gui] Launching Phoc + Phosh mobile environment..."
         cat << 'RUNNER' > /tmp/run_phosh_session.sh
 #!/bin/sh
+export TMPDIR=/tmp
+export TEMP=/tmp
+export TMP=/tmp
 export WAYLAND_DISPLAY=wayland-0
 export GDK_BACKEND=wayland
 export XDG_RUNTIME_DIR=/tmp/run-user-0

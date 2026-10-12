@@ -54,12 +54,33 @@ int faccessat(int dirfd, const char *pathname, int mode, int flags) {
     return orig_faccessat(dirfd, pathname, mode, 0);
 }
 
-const char *udev_device_get_property_value(struct udev_device *udev_device, const char *property) {
-    if (!orig_udev_device_get_property_value) {
-        orig_udev_device_get_property_value = dlsym(RTLD_NEXT, "udev_device_get_property_value");
-    }
+static const char *(*orig_udev_device_get_devnode)(struct udev_device *udev_device) = NULL;
+static const char *(*orig_udev_device_get_sysname)(struct udev_device *udev_device) = NULL;
 
-    if (!udev_device || !property || !orig_udev_device_get_property_value)
+static void init_udev_ptrs(void) {
+    if (!orig_udev_device_get_property_value)
+        orig_udev_device_get_property_value = dlsym(RTLD_NEXT, "udev_device_get_property_value");
+    if (!orig_udev_device_get_devnode)
+        orig_udev_device_get_devnode = dlsym(RTLD_NEXT, "udev_device_get_devnode");
+    if (!orig_udev_device_get_sysname)
+        orig_udev_device_get_sysname = dlsym(RTLD_NEXT, "udev_device_get_sysname");
+
+    if (!orig_udev_device_get_property_value || !orig_udev_device_get_devnode) {
+        void *h = dlopen("libudev.so.1", RTLD_LAZY | RTLD_GLOBAL);
+        if (h) {
+            if (!orig_udev_device_get_property_value)
+                orig_udev_device_get_property_value = dlsym(h, "udev_device_get_property_value");
+            if (!orig_udev_device_get_devnode)
+                orig_udev_device_get_devnode = dlsym(h, "udev_device_get_devnode");
+            if (!orig_udev_device_get_sysname)
+                orig_udev_device_get_sysname = dlsym(h, "udev_device_get_sysname");
+        }
+    }
+}
+
+const char *udev_device_get_property_value(struct udev_device *udev_device, const char *property) {
+    init_udev_ptrs();
+    if (!udev_device || !property)
         return NULL;
 
     if (strcmp(property, "ID_INPUT_TOUCHSCREEN") == 0 ||
@@ -68,11 +89,10 @@ const char *udev_device_get_property_value(struct udev_device *udev_device, cons
         strcmp(property, "ID_SEAT") == 0 ||
         strcmp(property, "WL_OUTPUT") == 0) {
 
-        const char *sysname = orig_udev_device_get_property_value(udev_device, "SYSNAME");
-        const char *devname = orig_udev_device_get_property_value(udev_device, "DEVNAME");
+        const char *node = orig_udev_device_get_devnode ? orig_udev_device_get_devnode(udev_device) : NULL;
+        const char *sys = orig_udev_device_get_sysname ? orig_udev_device_get_sysname(udev_device) : NULL;
 
-        if ((sysname && strcmp(sysname, "event2") == 0) ||
-            (devname && strstr(devname, "event2") != NULL)) {
+        if ((node && strstr(node, "event2")) || (sys && strstr(sys, "event2"))) {
             if (strcmp(property, "ID_INPUT_TOUCHSCREEN") == 0) return "1";
             if (strcmp(property, "ID_INPUT") == 0) return "1";
             if (strcmp(property, "ID_INPUT_KEYBOARD") == 0) return "0";
@@ -81,7 +101,9 @@ const char *udev_device_get_property_value(struct udev_device *udev_device, cons
         }
     }
 
-    return orig_udev_device_get_property_value(udev_device, property);
+    if (orig_udev_device_get_property_value)
+        return orig_udev_device_get_property_value(udev_device, property);
+    return NULL;
 }
 
 drmModeObjectPropertiesPtr drmModeObjectGetProperties(int fd, uint32_t object_id, uint32_t object_type) {
