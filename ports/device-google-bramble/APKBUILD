@@ -2,7 +2,7 @@
 maintainer="Yurii Bishchuk <astellias@gmail.com>"
 pkgname=device-google-bramble
 pkgver=1
-pkgrel=8
+pkgrel=9
 pkgdesc="Google Pixel 4a (5G) (SM7250 / Snapdragon 765G)"
 url="https://wiki.postmarketos.org/wiki/Google_Pixel_4a_(5G)_(google-bramble)"
 arch="aarch64"
@@ -69,6 +69,6 @@ sha512sums="
 156a5472e81f1251559a18772ac95d412a577ade64d732c8395213380c4187fcbacb8af8e0455f73209292d8c5c7fa923fff20b2445eda8915bb9960f216463a  fix_drm_formats.c
 47522581a8228c1cd2da1a0920b847c7c483638a1ac02cb304478dbfd3eff24538d2f3ba9c927131aee7540f0e02de04ea8cf46f554c0ee8f512b2cd6107c35c  90-google-bramble.rules
 a5d44b215e552b22f2bb984b435c5aeb3dc03d83ad0a81e1d43783e68b234a82a04be8015490f2d200e1f20b08524c03bb9cdacb21520f257f5d581ebc6845bd  bramble-display.sh
-aa151ad58a16226e6e7553e7208b4309373ba98cff501678fbcad656fde6d86894d1e70adb32376d0085c05fe2ee68ca7896b582945838059dbdd1922f022c5c  phoc.ini
+0cb295e52c929d8a498ad0d1d18ddffdbd6b5a29d15fca57c102fc055cdf908f36ee4fa538415b4679d4aa071da393a9cf44a6c61f749e09f05a3201139f079f  phoc.ini
 2386245015ebf9a450877d0698cb4de851a6b3299b2926f7431b98bfd9c7af6d10c508a49383c042cb13443ba6366615897b8276162b11a6f2a3521df78839dd  start_gui.sh
 "
