@@ -12,3 +12,8 @@ busybox_aarch64_static
 
 # Keep assets archive, ports, scripts, docs, wiki
 !halium_bramble_assets.tar.gz
+
+ports/droidian-halium/boot/output/
+ports/droidian-halium/boot/kernel/
+ports/droidian-halium/boot/ramdisk/
+ports/droidian-halium/downloads/
