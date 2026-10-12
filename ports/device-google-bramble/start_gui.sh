@@ -13,9 +13,7 @@ export LD_PRELOAD=/usr/lib/libfix_drm_formats.so
 export WLR_DRM_DEVICES=/dev/dri/card0
 export WLR_NO_HARDWARE_CURSORS=1
 export WLR_RENDERER=pixman
-export LIBGL_ALWAYS_SOFTWARE=1
-export GALLIUM_DRIVER=llvmpipe
-export GSK_RENDERER=cairo
+export WLR_LIBINPUT_NO_DEVICES=1
 export GDK_BACKEND=wayland
 export NO_AT_BRIDGE=1
 export XDG_CURRENT_DESKTOP=Phosh:GNOME
@@ -62,13 +60,17 @@ case "$1" in
         echo "[start_gui] Launching Phoc + Phosh mobile environment..."
         cat << 'RUNNER' > /tmp/run_phosh_session.sh
 #!/bin/sh
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export TMPDIR=/tmp
 export TEMP=/tmp
 export TMP=/tmp
 export WAYLAND_DISPLAY=wayland-0
 export GDK_BACKEND=wayland
 export XDG_RUNTIME_DIR=/tmp/run-user-0
-export LD_PRELOAD=/usr/lib/libfix_drm_formats.so
+unset LD_PRELOAD
+export LIBGL_ALWAYS_SOFTWARE=1
+export GALLIUM_DRIVER=llvmpipe
+export GSK_RENDERER=cairo
 
 (
     while [ ! -e "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; do sleep 0.2; done

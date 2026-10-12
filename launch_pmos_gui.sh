@@ -7,10 +7,7 @@ set -e
 echo "[*] Ensuring Android runtime is stopped..."
 adb shell "stop" 2>/dev/null || true
 
-TARGET="/tmp/pmos_clean"
-if ! adb shell "mountpoint -q /tmp/pmos_clean" 2>/dev/null; then
-    TARGET="/tmp/pmos"
-fi
+TARGET="/tmp/pmos"
 echo "[*] Using target rootfs: $TARGET"
 
 echo "[*] Ensuring chroot mount points (/dev/pts, /dev, /proc, /sys)..."
