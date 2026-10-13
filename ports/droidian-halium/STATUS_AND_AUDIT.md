@@ -131,3 +131,40 @@ export MOZ_FORCE_DISABLE_E10S=1
 ### GitHub репозиторій:
 - Створено публічний репозиторій: **https://github.com/YuriiBishchuk/droidian-google-bramble**
 - Вивантажено повний порт з README.md, LICENSE, .gitignore та структурою `ports/droidian-halium/`
+
+---
+
+## 5. Підтвердження робочого стану (13 жовтня 2026 - оновлення)
+
+### ✅ Скриншот робочого столу Phosh
+- **Файл:** `screen_test.png` (1080x2341 PNG, ~630 KB)
+- **Результат:** Phosh shell рендерить UI на дисплеї. Домінантний колір `#126438` (зелено-бірюзовий Phosh тема) + світлі елементи UI (`#F6F5F4`).
+- **Чорні пікселі:** 0.5% — екран **не чорний**, Phosh повністю працює.
+
+### ✅ Стабільність стану
+- Phoc (wlroots Vulkan) — запущено без помилок swapchain на DSI-1 (1080x2340@61.6Hz)
+- Phosh — готовий через 1.3с, UI реагує на дотик
+- XWayland (:0) — працює паралельно для Firefox/Epiphany
+- Firefox XWayland (PID 20589) та Epiphany XWayland (PID 20656) — стабільні 1.5+ годин
+
+### 📋 Фінальна перевірка перед релізом
+| Компонент | Статус | Примітка |
+|---|---|---|
+| **Display (DSI-1)** | ✅ | Modeset OK, backlight OK, Phosh UI видимий |
+| **GPU Turnip Vulkan** | ✅ | Adreno 620, Mesa 26.3, Vulkan 1.3.359 |
+| **Phoc Compositor** | ✅ | WLR_RENDERER=vulkan, 60 FPS, ~1-4% CPU |
+| **Phosh Shell** | ✅ | Scale 2.75, touch OK, скріншот підтверджує UI |
+| **XWayland** | ✅ | DISPLAY=:0, Firefox/Epiphany стабільні |
+| **Firefox (XWayland)** | ✅ | `ports/droidian-halium/firefox_xwayland.sh` |
+| **Epiphany (XWayland)** | ✅ | `ports/droidian-halium/epiphany_xwayland.sh` |
+| **Touchscreen** | ✅ | FocalTech FT5446, event2, udev OK |
+| **Backlight** | ✅ | sysfs, 0-1023 |
+| **GitHub Repo** | ✅ | https://github.com/YuriiBishchuk/droidian-google-bramble |
+
+---
+
+### Наступні кроки (після MVP)
+1. **Native Wayland GTK4 apps**: Розслідити краш Glycin (`libglycin-2.so.0`) — можливо, потребує патч GTK4 або оновлення wlroots.
+2. **libadreno_app_profiles.so**: Скопіювати з Android 14+ vendor.img для `eglgears_wayland` та нативних EGL додатків.
+3. **Audio / Modem / Wi-Fi**: Підняти HAL демони через binder/lxc-android-config.
+4. **Chrome/Chromium**: Встановити в rootfs для тестування ще одного браузера.
