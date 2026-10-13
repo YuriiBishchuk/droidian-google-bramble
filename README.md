@@ -108,15 +108,17 @@ fastboot reboot
 |---|---|---|
 | **phosh-mobile-settings** | ✅ Works | Mobile settings UI functional |
 | **gnome-calculator** | ✅ Works | Network warnings only (offline) |
-| **firefox (XWayland)** | ✅ Works | Stable via XWayland with `GDK_BACKEND=x11`, `MOZ_ENABLE_WAYLAND=0`, disabled WebRender/GPU process. Launcher script: `ports/droidian-halium/firefox_xwayland.sh` |
+| **firefox (XWayland)** | ✅ Works | Stable via XWayland with `GDK_BACKEND=x11`, `MOZ_ENABLE_WAYLAND=0`, disabled WebRender/GPU process. Launcher: `ports/droidian-halium/firefox_xwayland.sh` |
+| **epiphany (XWayland)** | ✅ Works | GNOME Web stable on XWayland. Launcher: `ports/droidian-halium/epiphany_xwayland.sh` |
 | **firefox (Wayland)** | ⚠️ Partial | Runs ~90s with `MOZ_DISABLE_GPU=1 MOZ_DISABLE_GPU_PROCESS=1 MOZ_WEBRENDER=0`, then exits cleanly. Glycin crash with GPU enabled. |
 | **gnome-control-center** | ❌ Unsupported | "Only supported under GNOME and Unity" |
-| **eglgears_wayland** | ⚠️ Partial | Missing `libadreno_app_profiles.so` from vendor |
+| **eglgears_wayland** | ⚠️ Partial | Missing `libadreno_app_profiles.so` from vendor (Android 14+) |
 | **xeglgears (XWayland)** | ✅ Works | OpenGL ES gears demo stable on XWayland |
 
-**Firefox Solutions:**
-- **XWayland (recommended):** `./ports/droidian-halium/firefox_xwayland.sh` — stable for hours
-- **Wayland native:** Requires `MOZ_DISABLE_GPU=1 MOZ_DISABLE_GPU_PROCESS=1 MOZ_WEBRENDER=0 MOZ_FORCE_DISABLE_E10S=1` — limited runtime
+**Working Browser Solutions (XWayland):**
+- **Firefox:** `./ports/droidian-halium/firefox_xwayland.sh` — stable for hours
+- **Epiphany (GNOME Web):** `./ports/droidian-halium/epiphany_xwayland.sh` — stable
+- **Wayland native Firefox:** Requires `MOZ_DISABLE_GPU=1 MOZ_DISABLE_GPU_PROCESS=1 MOZ_WEBRENDER=0 MOZ_FORCE_DISABLE_E10S=1` — limited runtime
 
 ---
 
@@ -128,6 +130,7 @@ fastboot reboot
   - `flash_stock_a13_base.sh` - Automated baseline flashing.
   - `start_droidian_live.sh` - Live container orchestration and chroot launcher.
   - `firefox_xwayland.sh` - Firefox launcher via XWayland (stable).
+  - `epiphany_xwayland.sh` - Epiphany/GNOME Web launcher via XWayland (stable).
 - `ports/pmos-downstream/` - Alternative postmarketOS downstream port files.
 
 ---
