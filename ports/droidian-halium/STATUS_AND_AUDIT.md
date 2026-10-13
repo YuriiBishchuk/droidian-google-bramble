@@ -99,9 +99,34 @@
 | **gtk4-demo / eglgears_wayland** | ⚠️ **ЧАСТКОВО** | `eglgears_wayland` — помилка "failed to choose a config", відсутня `libadreno_app_profiles.so` у вендорі. Потребує копіювання з vendor.img. |
 
 ### Відомі проблеми Firefox на Wayland (Phoc + Turnip):
-1. **Glycin crash** (`libglycin-2.so.0`): Wayland-композитор GTK4 (Glycin) падає при ініціалізації GPU процесу Firefox.
-2. **Workaround**: `MOZ_DISABLE_GPU=1 MOZ_DISABLE_GPU_PROCESS=1 MOZ_WEBRENDER=0` + `MOZ_FORCE_DISABLE_E10S=1` — все одно крашиться через Glycin.
-3. **Альтернатива**: Запуск через XWayland (`GDK_BACKEND=x11 DISPLAY=:0`) або headless-режим.
+1. **Glycin crash** (`libglycin-2.so.0`): Wayland-композитор GTK4 (Glycin) падає при ініціалізації GPU процесу Firefox на Wayland. Вирішено через XWayland.
+2. **Відсутня `libadreno_app_profiles.so`**: Потрібна для EGL конфігурації на Adreno. Відсутня у Android 13 vendor, є в Android 14+.
+3. **gnome-control-center**: Не сумісний з Phosh, використовувати `phosh-mobile-settings`.
+
+### Рішення для Firefox:
+
+#### Варіант 1: XWayland (РЕКОМЕНДОВАНИЙ) ✅
+```bash
+export DISPLAY=:0
+export GDK_BACKEND=x11
+export MOZ_ENABLE_WAYLAND=0
+export MOZ_DISABLE_WAYLAND=1
+# + вимкнення WebRender/GPU процесу в user.js
+```
+- Стабільна робота 2+ години без крашів
+- Повний функціонал браузера
+- Скрипт: `ports/droidian-halium/firefox_xwayland.sh`
+
+#### Варіант 2: Wayland native з вимкненим GPU ⚠️
+```bash
+export MOZ_DISABLE_GPU=1
+export MOZ_DISABLE_GPU_PROCESS=1
+export MOZ_WEBRENDER=0
+export MOZ_FORCE_DISABLE_E10S=1
+```
+- Працює ~90 секунд, потім виходить чисто (exit code 0)
+- Без краш-репортів
+- Обмежений функціонал (без GPU прискорення)
 
 ### GitHub репозиторій:
 - Створено публічний репозиторій: **https://github.com/YuriiBishchuk/droidian-google-bramble**
