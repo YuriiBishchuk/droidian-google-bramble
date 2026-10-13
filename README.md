@@ -102,6 +102,20 @@ fastboot reboot
 
 ---
 
+## 🧪 Application Testing Status (2026-10-13)
+
+| Application | Status | Notes |
+|---|---|---|
+| **phosh-mobile-settings** | ✅ Works | Mobile settings UI functional |
+| **gnome-calculator** | ✅ Works | Network warnings only (offline) |
+| **firefox** | ❌ Crashes | SIGSEGV in `libglycin-2.so.0` (GTK4 Wayland compositor) |
+| **gnome-control-center** | ❌ Unsupported | "Only supported under GNOME and Unity" |
+| **eglgears_wayland** | ⚠️ Partial | Missing `libadreno_app_profiles.so` from vendor |
+
+**Firefox Workaround:** Run via XWayland (`GDK_BACKEND=x11`) or headless mode. Wayland native requires Glycin compositor fixes.
+
+---
+
 ## 📂 Repository Structure
 
 - `ports/droidian-halium/` - Primary Droidian / Halium 11 port:
@@ -110,6 +124,12 @@ fastboot reboot
   - `flash_stock_a13_base.sh` - Automated baseline flashing.
   - `start_droidian_live.sh` - Live container orchestration and chroot launcher.
 - `ports/pmos-downstream/` - Alternative postmarketOS downstream port files.
+
+---
+
+## 🔗 GitHub Repository
+
+**Public repo:** https://github.com/YuriiBishchuk/droidian-google-bramble
 
 ---
 

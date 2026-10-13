@@ -37,7 +37,7 @@
 ### Б. Виправлення Bionic TLS Crash (`SIGSEGV 0x820`)
 - **Проблема**: У Bionic libc Android 13 покажчик потоку звертається за адресою `[tpidr_el0 - 8]`, очікуючи структуру TLS Bionic. Під Linux glibc за цією адресою був NULL, що викликало миттєвий краш програми при завантаженні драйвера Adreno.
 - **Рішення**: Створено легку C-бібліотеку `libfix_bionic_tls.so`, яка виділяє сторінку пам'яті та записує правильний покажчик у `[tpidr_el0 - 8]`. Додано у `/etc/ld.so.preload`.
-- **Результат**: 0 падінь, Qualcomm Adreno 620 та драйвери вендора вантажаться бездоганно.
+- **Результат**: 0 падінь, Qualcomm Adreno 620 та драйвери вендора вантажаються бездоганно.
 
 ### В. Динамічні розділи Android (`super` partition)
 - **Проблема**: Старий Halium очікував окремі файли `system.img` та `vendor.img`. У Pixel 4a (5G) вони запаковані в LP (Logical Partitions) усередині `sda18` (`super`).
@@ -83,3 +83,26 @@
    - `libfix_bionic_tls.so` — запобігання падінням Bionic libc TLS (`[tpidr_el0 - 8]`).
 4. **[`start_droidian_live.sh`](file:///run/host/home/astellias/Projects/Pixel4a5G/ports/droidian-halium/start_droidian_live.sh)**:
    - Автоматичний скрипт швидкого підйому живої сесії в один клік з повноцінним GPU Vulkan рендерингом (Phoc + Phosh на Adreno 620).
+
+---
+
+## 4. Тестування додатків (13 жовтня 2026)
+
+### Статус додатків під Phosh + Turnip Vulkan:
+
+| Додаток | Статус | Примітки |
+|---|---|---|
+| **phosh-mobile-settings** | ✅ **ПРАЦЮЄ** | Мобільні налаштування Phosh запускаються, UI відображається. Попередження про PipeWire/ALSA та відсутню схему `google,bramble-sm7250` в gmobile. |
+| **gnome-calculator** | ✅ **ПРАЦЮЄ** | Запускається коректно. Попередження про мережу (currency rates) — очікувано без інтернету. |
+| **firefox** | ❌ **KRASH** | `SIGSEGV` у `libglycin-2.so.0` (Glycin Wayland compositor library). Крашиться при спробі підключитися до Wayland композитора. Потребує: відключення GPU процесу (`MOZ_DISABLE_GPU=1 MOZ_DISABLE_GPU_PROCESS=1`), WebRender (`MOZ_WEBRENDER=0`), або запуск через XWayland. |
+| **gnome-control-center** | ❌ **НЕ ПІДТРИМУЄТЬСЯ** | Повідомляє "Running gnome-control-center is only supported under GNOME and Unity, exiting". Потрібен `XDG_CURRENT_DESKTOP=GNOME` або використання `phosh-mobile-settings` замість нього. |
+| **gtk4-demo / eglgears_wayland** | ⚠️ **ЧАСТКОВО** | `eglgears_wayland` — помилка "failed to choose a config", відсутня `libadreno_app_profiles.so` у вендорі. Потребує копіювання з vendor.img. |
+
+### Відомі проблеми Firefox на Wayland (Phoc + Turnip):
+1. **Glycin crash** (`libglycin-2.so.0`): Wayland-композитор GTK4 (Glycin) падає при ініціалізації GPU процесу Firefox.
+2. **Workaround**: `MOZ_DISABLE_GPU=1 MOZ_DISABLE_GPU_PROCESS=1 MOZ_WEBRENDER=0` + `MOZ_FORCE_DISABLE_E10S=1` — все одно крашиться через Glycin.
+3. **Альтернатива**: Запуск через XWayland (`GDK_BACKEND=x11 DISPLAY=:0`) або headless-режим.
+
+### GitHub репозиторій:
+- Створено публічний репозиторій: **https://github.com/YuriiBishchuk/droidian-google-bramble**
+- Вивантажено повний порт з README.md, LICENSE, .gitignore та структурою `ports/droidian-halium/`
