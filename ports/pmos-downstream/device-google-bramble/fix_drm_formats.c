@@ -10,6 +10,7 @@
 #include <time.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <stdlib.h>
 
 #ifndef STATX_MNT_ID
 #define STATX_MNT_ID 0x00001000U
@@ -202,4 +203,224 @@ drmModePlanePtr drmModeGetPlane(int fd, uint32_t plane_id) {
     }
     p->count_formats = unique_count;
     return p;
+}
+
+#define EGL_EXTENSIONS 0x3055
+static const char *(*orig_eglQueryString)(void *dpy, int name) = NULL;
+
+const char *eglQueryString(void *dpy, int name) {
+    if (!orig_eglQueryString) {
+        orig_eglQueryString = dlsym(RTLD_NEXT, "eglQueryString");
+    }
+    const char *ret = orig_eglQueryString ? orig_eglQueryString(dpy, name) : NULL;
+    if (name == EGL_EXTENSIONS && ret != NULL) {
+        if (!strstr(ret, "EGL_EXT_image_dma_buf_import")) {
+            static char buf[8192];
+            snprintf(buf, sizeof(buf), "%s EGL_EXT_image_dma_buf_import", ret);
+            return buf;
+        }
+    }
+    return ret;
+}
+
+static void *(*orig_eglGetProcAddress)(const char *procname) = NULL;
+void *eglGetProcAddress(const char *procname) {
+    if (procname && strcmp(procname, "eglQueryString") == 0) {
+        return (void *)eglQueryString;
+    }
+    if (!orig_eglGetProcAddress) {
+        orig_eglGetProcAddress = dlsym(RTLD_NEXT, "eglGetProcAddress");
+    }
+    return orig_eglGetProcAddress ? orig_eglGetProcAddress(procname) : NULL;
+}
+
+static drmModeConnectorPtr (*orig_drmModeGetConnector)(int fd, uint32_t connector_id) = NULL;
+static drmModeConnectorPtr (*orig_drmModeGetConnectorCurrent)(int fd, uint32_t connector_id) = NULL;
+
+drmModeConnectorPtr drmModeGetConnector(int fd, uint32_t connector_id) {
+    if (!orig_drmModeGetConnector) orig_drmModeGetConnector = dlsym(RTLD_NEXT, "drmModeGetConnector");
+    drmModeConnectorPtr c = orig_drmModeGetConnector ? orig_drmModeGetConnector(fd, connector_id) : NULL;
+    if (c && c->connector_type == DRM_MODE_CONNECTOR_VIRTUAL) {
+        c->connection = DRM_MODE_DISCONNECTED;
+    }
+    return c;
+}
+
+drmModeConnectorPtr drmModeGetConnectorCurrent(int fd, uint32_t connector_id) {
+    if (!orig_drmModeGetConnectorCurrent) orig_drmModeGetConnectorCurrent = dlsym(RTLD_NEXT, "drmModeGetConnectorCurrent");
+    drmModeConnectorPtr c = orig_drmModeGetConnectorCurrent ? orig_drmModeGetConnectorCurrent(fd, connector_id) : NULL;
+    if (c && c->connector_type == DRM_MODE_CONNECTOR_VIRTUAL) {
+        c->connection = DRM_MODE_DISCONNECTED;
+    }
+    return c;
+}
+
+void *wlr_allocator_autocreate(void *backend, void *renderer) {
+    int fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
+    const char *ren = getenv("WLR_RENDERER");
+    if (ren && strcmp(ren, "pixman") == 0) {
+        void *(*p_dumb)(int) = dlsym(RTLD_DEFAULT, "wlr_drm_dumb_allocator_create");
+        if (p_dumb) return p_dumb(fd);
+    }
+    void *(*p_gbm_alloc)(int) = dlsym(RTLD_DEFAULT, "wlr_gbm_allocator_create");
+    if (!p_gbm_alloc) {
+        return NULL;
+    }
+    return p_gbm_alloc(fd);
+}
+
+#include <link.h>
+#include <sys/mman.h>
+
+static int dl_cb_wlroots(struct dl_phdr_info *info, size_t size, void *data) {
+    if (strstr(info->dlpi_name, "libwlroots")) {
+        uintptr_t base = info->dlpi_addr;
+        uintptr_t target1 = base + 0x792f8;
+        uintptr_t target2 = base + 0x79300;
+        uintptr_t page = target1 & ~4095;
+        if (mprotect((void *)page, 4096, PROT_READ | PROT_WRITE | PROT_EXEC) == 0) {
+            *(volatile uint32_t *)target1 = 0xd503201f; // nop
+            *(volatile uint32_t *)target2 = 0xd503201f; // nop
+            mprotect((void *)page, 4096, PROT_READ | PROT_EXEC);
+            __builtin___clear_cache((char *)target1, (char *)target2 + 4);
+        }
+
+        uintptr_t target_vk1 = base + 0x53fec;
+        uintptr_t page_vk1 = target_vk1 & ~4095;
+        if (mprotect((void *)page_vk1, 4096, PROT_READ | PROT_WRITE | PROT_EXEC) == 0) {
+            if (*(volatile uint32_t *)target_vk1 == 0x34001254) {
+                *(volatile uint32_t *)target_vk1 = 0x140000b3; // b 0x542b8 (match Turnip Vulkan)
+                fprintf(stderr, "[patch_wlroots] Successfully patched target_vk1 (0x53fec) to 0x140000b3!\n");
+            }
+            mprotect((void *)page_vk1, 4096, PROT_READ | PROT_EXEC);
+            __builtin___clear_cache((char *)target_vk1, (char *)target_vk1 + 4);
+        }
+
+        uintptr_t target_vk = base + 0x54184;
+        uintptr_t page_vk = target_vk & ~4095;
+        if (mprotect((void *)page_vk, 4096, PROT_READ | PROT_WRITE | PROT_EXEC) == 0) {
+            if (*(volatile uint32_t *)target_vk == 0x34000438) {
+                *(volatile uint32_t *)target_vk = 0x1400004d; // b 0x542b8 (match Turnip Vulkan)
+                fprintf(stderr, "[patch_wlroots] Successfully patched target_vk (0x54184) to 0x1400004d!\n");
+            }
+            mprotect((void *)page_vk, 4096, PROT_READ | PROT_EXEC);
+            __builtin___clear_cache((char *)target_vk, (char *)target_vk + 4);
+        }
+
+        // Patch 55df0: DRM_FORMAT_MOD_INVALID support in find_modifier
+        // Replaces cbz w3, 55e1c (0x34000163) with tbnz x1, #55, 0x28 (0xb7b80141) -> branches to ret with &modifiers[0]
+        uintptr_t target_mod = base + 0x55df0;
+        uintptr_t page_mod = target_mod & ~4095;
+        if (mprotect((void *)page_mod, 4096, PROT_READ | PROT_WRITE | PROT_EXEC) == 0) {
+            if (*(volatile uint32_t *)target_mod == 0x34000163) {
+                *(volatile uint32_t *)target_mod = 0xb7b80141; // tbnz x1, #55, 0x28
+                fprintf(stderr, "[patch_wlroots] Successfully patched target_mod (0x55df0) for DRM_FORMAT_MOD_INVALID!\n");
+            }
+            mprotect((void *)page_mod, 4096, PROT_READ | PROT_EXEC);
+            __builtin___clear_cache((char *)target_mod, (char *)target_mod + 4);
+        }
+
+        // Patch 43c08 & 43bc8: Prevent abort in wlr_renderer_clear / wlr_renderer_end when r->rendering == 0
+        uintptr_t target_clr = base + 0x43c08;
+        uintptr_t page_clr = target_clr & ~4095;
+        if (mprotect((void *)page_clr, 4096, PROT_READ | PROT_WRITE | PROT_EXEC) == 0) {
+            *(volatile uint32_t *)target_clr = 0xd65f03c0; // ret
+            *(volatile uint32_t *)(base + 0x43bc8) = 0xd65f03c0; // ret
+            mprotect((void *)page_clr, 4096, PROT_READ | PROT_EXEC);
+            __builtin___clear_cache((char *)target_clr, (char *)target_clr + 4);
+            __builtin___clear_cache((char *)(base + 0x43bc8), (char *)(base + 0x43bc8) + 4);
+            fprintf(stderr, "[patch_wlroots] Successfully bypassed assertions in wlr_renderer_clear/end!\n");
+        }
+    }
+    return 0;
+}
+
+__attribute__((constructor))
+static void patch_wlroots_init(void) {
+    dl_iterate_phdr(dl_cb_wlroots, NULL);
+}
+
+int wlr_renderer_get_drm_fd(void *renderer) {
+    int (*orig)(void *) = dlsym(RTLD_NEXT, "wlr_renderer_get_drm_fd");
+    int fd = orig ? orig(renderer) : -1;
+    if (fd < 0) {
+        static int card0_fd = -1;
+        if (card0_fd < 0) {
+            card0_fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
+        }
+        return card0_fd;
+    }
+    return fd;
+}
+
+typedef struct VkBaseOutStructure {
+    int sType;
+    struct VkBaseOutStructure* pNext;
+} VkBaseOutStructure;
+
+typedef struct VkPhysicalDeviceProperties2 {
+    int sType;
+    void* pNext;
+} VkPhysicalDeviceProperties2;
+
+typedef struct VkPhysicalDeviceDrmPropertiesEXT {
+    int sType;
+    void* pNext;
+    int hasPrimary;
+    int hasRender;
+    int64_t primaryMajor;
+    int64_t primaryMinor;
+    int64_t renderMajor;
+    int64_t renderMinor;
+} VkPhysicalDeviceDrmPropertiesEXT;
+
+void vkGetPhysicalDeviceProperties2(void* physicalDevice, VkPhysicalDeviceProperties2* pProperties) {
+    static void (*orig)(void*, void*) = NULL;
+    if (!orig) orig = dlsym(RTLD_NEXT, "vkGetPhysicalDeviceProperties2");
+    if (orig) orig(physicalDevice, pProperties);
+
+    if (pProperties) {
+        VkBaseOutStructure* cur = (VkBaseOutStructure*)pProperties->pNext;
+        while (cur) {
+            if (cur->sType == 1000353000) { // VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT
+                VkPhysicalDeviceDrmPropertiesEXT* drm_props = (VkPhysicalDeviceDrmPropertiesEXT*)cur;
+                drm_props->hasPrimary = 1;
+                drm_props->hasRender = 0;
+                drm_props->primaryMajor = 226;
+                drm_props->primaryMinor = 0;
+                fprintf(stderr, "[patch_wlroots] Injected card0 (226, 0) DRM properties into Vulkan physical device!\n");
+            }
+            cur = cur->pNext;
+        }
+    }
+}
+
+void vkGetPhysicalDeviceProperties2KHR(void* physicalDevice, VkPhysicalDeviceProperties2* pProperties) {
+    vkGetPhysicalDeviceProperties2(physicalDevice, pProperties);
+}
+
+void* (*orig_vkGetInstanceProcAddr)(void* instance, const char* name) = NULL;
+void* vkGetInstanceProcAddr(void* instance, const char* name) {
+    if (name) {
+        if (strcmp(name, "vkGetPhysicalDeviceProperties2") == 0 ||
+            strcmp(name, "vkGetPhysicalDeviceProperties2KHR") == 0) {
+            return (void*)vkGetPhysicalDeviceProperties2;
+        }
+    }
+    if (!orig_vkGetInstanceProcAddr) orig_vkGetInstanceProcAddr = dlsym(RTLD_NEXT, "vkGetInstanceProcAddr");
+    return orig_vkGetInstanceProcAddr ? orig_vkGetInstanceProcAddr(instance, name) : NULL;
+}
+
+void *wlr_linux_dmabuf_v1_create(void *display, uint32_t version, void *renderer) {
+    if (version > 4) version = 4;
+    static void *(*orig)(void *, uint32_t, void *) = NULL;
+    if (!orig) orig = dlsym(RTLD_NEXT, "wlr_linux_dmabuf_v1_create");
+    return orig ? orig(display, version, renderer) : NULL;
+}
+
+void *wlr_linux_dmabuf_v1_create_with_renderer(void *display, uint32_t version, void *renderer) {
+    if (version > 4) version = 4;
+    static void *(*orig)(void *, uint32_t, void *) = NULL;
+    if (!orig) orig = dlsym(RTLD_NEXT, "wlr_linux_dmabuf_v1_create_with_renderer");
+    return orig ? orig(display, version, renderer) : NULL;
 }

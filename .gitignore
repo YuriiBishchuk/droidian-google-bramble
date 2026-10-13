@@ -17,3 +17,11 @@ ports/droidian-halium/boot/output/
 ports/droidian-halium/boot/kernel/
 ports/droidian-halium/boot/ramdisk/
 ports/droidian-halium/downloads/
+
+# Shared libraries and packaging intermediates
+*.so
+*.deb
+debian-binary
+control.tar.*
+data.tar.*
+inc_drm/
